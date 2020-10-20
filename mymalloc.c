@@ -31,7 +31,9 @@ int meta_get_size(void *addr) {
 }
 
 void meta_set_valid(void *addr, int valid) {
-    *(unsigned char *)addr |= valid << 7;
+    if (meta_get_valid(addr) != valid) {
+        *(unsigned char *)addr ^= 1 << 7;
+    }
 }
 
 void meta_set_size(void *addr, int size) {
@@ -105,12 +107,10 @@ void print_block(void *addr) {
 
 /* For testing purposes, in reality our functions would be included in a library */
 int main() {
-    print_block(myblock);
+    // print_block(myblock);
 
-    mymalloc(10);
-
-    print_block(myblock);
-    print_block(myblock+11);
+    mymalloc(25);
+    mymalloc(1);
 
     return 0;
 }
