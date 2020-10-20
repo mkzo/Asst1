@@ -6,37 +6,37 @@
 
 #define BLOCK_S 30
 #define META_S 2
-static unsigned char myblock[BLOCK_S];
+static char myblock[BLOCK_S];
 
-void print_block(void *addr);
+void print_block(char *addr);
 
 // 1 means valid/free, 0 means in use
-int meta_get_valid(void *addr) {
+int meta_get_valid(char *addr) {
     unsigned char mask = 1 << 7;
-    unsigned char val = *(unsigned char *)addr;
+    unsigned char val = *addr;
     return (mask & val) >> 7;
 }
 
-int meta_get_size(void *addr) {
+int meta_get_size(char *addr) {
     unsigned char *b1 = addr;
     unsigned char *b2 = addr+1;
 
     int val = 0;
     val += *b2;
 
-    unsigned char mask = 0xf;
+    char mask = 0xf;
     val += ((*b1) & mask) << 8;
 
     return val;
 }
 
-void meta_set_valid(void *addr, int valid) {
+void meta_set_valid(char *addr, int valid) {
     if (meta_get_valid(addr) != valid) {
-        *(unsigned char *)addr ^= 1 << 7;
+        *addr ^= 1 << 7;
     }
 }
 
-void meta_set_size(void *addr, int size) {
+void meta_set_size(char *addr, int size) {
     unsigned char *b1 = addr;
     unsigned char *b2 = addr+1;
 
@@ -59,15 +59,15 @@ void *mymalloc(int size) {
     }
 
     /* Assign new memory block */
-    void *nd = myblock;
-    while (nd - (void *)myblock < BLOCK_S) { 
+    char *nd = myblock;
+    while (nd - (char *)myblock < BLOCK_S) { 
         int nd_valid = meta_get_valid(nd);
         int nd_size = meta_get_size(nd);
         /* Free block and enough space to accomodate request */
         if (nd_valid == 1 && nd_size >= size) {
             /* Enough space to make a new block */
             if (nd_size > size + META_S) {
-                void *new_nd = nd + (size + META_S);
+                char *new_nd = nd + (size + META_S);
                 meta_set_valid(new_nd, 1);
                 meta_set_size(new_nd, nd_size - (size + META_S));
 
@@ -99,7 +99,7 @@ void print_mem() {
     printf("\n");
 }
 
-void print_block(void *addr) {
+void print_block(char *addr) {
     int res = meta_get_valid(addr);
     int size = meta_get_size(addr);
     printf("Block at %p:\n\tValid: %d\n\tSize: %d\n\n", addr, res, size);
@@ -109,7 +109,8 @@ void print_block(void *addr) {
 int main() {
     // print_block(myblock);
 
-    mymalloc(25);
+    mymalloc(28);
+    print_block(myblock);
     mymalloc(1);
 
     return 0;
