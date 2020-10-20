@@ -1,6 +1,8 @@
+*
+!/**/
+!*.*
+
 *.exe
 .DS_Store
-mymalloc
-memgrind
 .vscode/
 *.dSYM/
