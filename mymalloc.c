@@ -9,13 +9,13 @@
 static char myblock[BLOCK_SIZE];
 
 // 1 means in use, 0 means free
-bool get_used(void *addr) {
+bool get_used(const void *addr) {
     unsigned char mask = 0x1 << 7;  // 10000000
     unsigned char val = *(unsigned char*)addr;
     return (mask & val) >> 7;
 }
 
-int get_size(void *addr) {
+int get_size(const void *addr) {
     unsigned char *b1 = (unsigned char*)addr;
     unsigned char *b2 = (unsigned char*)addr+1;
 
@@ -28,24 +28,24 @@ int get_size(void *addr) {
     return val;
 }
 
-int get_freed(void *addr) {
+int get_freed(const void *addr) {
     unsigned char mask = 0x3 << 4;  // 00110000
     unsigned char val = *(unsigned char*)addr;
     return (mask & val) >> 4;
 }
 
-void set_used(void *addr, bool used) {
+void set_used(const void *addr, bool used) {
     if (get_used(addr) != used) {
         *(unsigned char*)addr ^= 1 << 7;
     }
 }
 
-void set_size(void *addr, int size) {
+void set_size(const void *addr, size_t size) {
     unsigned char *b1 = (unsigned char*)addr;
     unsigned char *b2 = (unsigned char*)addr+1;
 
-    int mask1 = 0xf00;
-    int mask2 = 0x0ff;
+    int mask1 = 0xf00;  // 1111 0000 0000
+    int mask2 = 0x0ff;  // 0000 1111 1111
 
     // save valid because we will overwrite
     int valid = get_used(addr);
@@ -55,9 +55,8 @@ void set_size(void *addr, int size) {
     *b2 = (size & mask2);
 }
 
-void set_freed(void *addr, int size) {
+void set_freed(const void *addr, size_t size) {
     unsigned char mask = 0x3 << 4; // 00110000
-    
     unsigned char val = *(unsigned char*)addr;
     val &= ~mask;
     val |= (size << 4);
@@ -65,7 +64,7 @@ void set_freed(void *addr, int size) {
     *(unsigned char*)addr = val;
 }
 
-void *mymalloc(int size) {
+void *mymalloc(size_t size) {
     /* Initializes first node, should only run once */
     if (get_size(myblock) == 0) {
         set_used(myblock, 0);
@@ -98,6 +97,7 @@ void *mymalloc(int size) {
             return nd + META_SIZE;
         }
 
+        /* move to next block */
         nd += nd_size + META_SIZE;
     }
 
@@ -106,20 +106,22 @@ void *mymalloc(int size) {
     return NULL;
 }
 
-void myfree(char *ptr) {
+void myfree(void *ptr) {
     if (get_size(myblock) == 0) {
         printf("Malloc has not yet been called\n");
         return;
     }
-    if (ptr == NULL || !(ptr >= myblock && ptr < myblock + BLOCK_SIZE)) {
+
+    char *target = ptr;
+    if (target == NULL || !(target >= myblock && target < myblock + BLOCK_SIZE)) {
         printf("Specified address is not a valid pointer\n");
         return;
     }
 
     char *prev = NULL;
     char *curr = myblock;
-    while (curr < ptr) {
-        if (curr + META_SIZE == ptr) {
+    while (curr < target) {
+        if (curr + META_SIZE == target) {
             printf("Specified pointer found...clearing\n");
             
             set_used(curr, false);
@@ -180,7 +182,7 @@ void print_mem() {
     printf("\n");
 }
 
-void print_block(void *addr) {
+void print_block(const void *addr) {
     int used = get_used(addr);
     int size = get_size(addr);
     int freed = get_freed(addr);
@@ -226,6 +228,10 @@ int main() {
     myfree(b);
 
     print_mem();
+
+    unsigned char f = (7 << 4);
+    
+    print_bin(&f);
 
     return 0;
 }
