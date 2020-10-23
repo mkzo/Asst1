@@ -112,7 +112,7 @@ void myfree(void *ptr) {
         return;
     }
 
-    char *target = ptr;
+    char *target = (char*)ptr;
     if (target == NULL || !(target >= myblock && target < myblock + BLOCK_SIZE)) {
         printf("Specified address is not a valid pointer\n");
         return;
