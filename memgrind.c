@@ -1,6 +1,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 //#include "mymalloc.h"
 
 /* Workload A */
@@ -58,29 +59,31 @@ int workload_c() {
 /* Workload D */
     
 /* Workload E */
-
+ 
 /* Takes a function pointer, runs the function 50 times and records the average running time */
-int run_time_recorder(int *workload_ptr()) {
-    int result = -1;
+int run_time_recorder(int (*workload_ptr)(), char* str) {
+    struct timeval bef;
+    struct timeval aft;
+    int total = 0;
     for (int i = 0; i < 50; i++) {
-        result = workload_ptr();
-        if (result == -1) {
-            printf("Error Detected");
-            /* Add errno stuff here */
-            return -1;
-        }
+        gettimeofday(&bef, NULL);
+        workload_ptr();
+        gettimeofday(&aft, NULL);
+        //printf("%d %d\n", aft.tv_usec, bef.tv_usec);
+        total += (aft.tv_usec - bef.tv_usec);
     }
+    printf("%s Average: %d us\n", str, total/50);
     return 0;
 }
 
 int main() {   
     /* Declare function pointers to workloads A, B, C, D, E */
-    int (*workload_ptr_a)() = workload_a;
-    int (*workload_ptr_b)() = workload_b;
-    int (*workload_ptr_c)() = workload_c;
+    int (*workload_ptr_a)() = &workload_a;
+    int (*workload_ptr_b)() = &workload_b;
+    int (*workload_ptr_c)() = &workload_c;
     /* Run each workload 50 times and print runtime */
-    run_time_recorder(workload_ptr_a);
-    run_time_recorder(workload_ptr_b);
-    run_time_recorder(workload_ptr_c);
+    run_time_recorder(workload_ptr_a, "Workload A");
+    run_time_recorder(workload_ptr_b, "Workload B");
+    run_time_recorder(workload_ptr_c, "Workload C");
     return 0;
 }
