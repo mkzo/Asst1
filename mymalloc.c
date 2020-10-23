@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "mymalloc.h"
 
-#define BLOCK_SIZE 30
+#define BLOCK_SIZE 4096
 #define META_SIZE 2
 static char myblock[BLOCK_SIZE];
 
@@ -122,8 +122,6 @@ void myfree(void *ptr) {
     char *curr = myblock;
     while (curr < target) {
         if (curr + META_SIZE == target) {
-            printf("Specified pointer found...clearing\n");
-            
             set_used(curr, false);
             set_freed(curr, 0);
 
@@ -195,7 +193,7 @@ void print_block(const void *addr) {
     printf("\n");
 }
 
-void print_bin(unsigned char *addr) {
+void print_bin(const unsigned char *addr) {
     unsigned char val1 = *addr;
     unsigned char val2 = *(addr+1);
 
@@ -210,28 +208,4 @@ void print_bin(unsigned char *addr) {
     }
 
     printf("\n");
-}
-
-int main() {
-    char *a = mymalloc(10);
-    char *b = mymalloc(10);
-
-    print_block(b-2);
-    myfree(a);
-    print_block(a-2);
-
-    char *c = mymalloc(8);
-    print_block(c-2);
-
-    print_mem();
-
-    myfree(b);
-
-    print_mem();
-
-    unsigned char f = (7 << 4);
-    
-    print_bin(&f);
-
-    return 0;
 }

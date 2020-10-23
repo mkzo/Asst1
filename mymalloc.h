@@ -1,6 +1,7 @@
-//#define malloc(x) mymalloc(x,_FILE_,_LINE_)
-//#define free(x) myfree(x,_FILE_,_LINE_)
+#define malloc(x) mymalloc(x)
+#define free(x) myfree(x)
 #include <stddef.h>
+#include <stdbool.h>
 
 bool get_used(const void *addr);
 int get_size(const void *addr);
@@ -11,4 +12,4 @@ void *mymalloc(size_t size);
 void myfree(void *ptr);
 
 void print_block(const void *addr);
-void print_bin(unsigned char *addr);
+void print_bin(const unsigned char *addr);
