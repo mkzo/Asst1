@@ -8,6 +8,7 @@
 #define META_SIZE 2
 static char myblock[BLOCK_SIZE];
 
+
 void error_handler(const char *message, const char *file, int line) {
     if (file == NULL) {return;}
     printf("mymalloc: %s:%d: %s\n", file, line, message);
@@ -115,21 +116,21 @@ void *mymalloc(size_t size, const char* file, int line) {
     }
 
     /* No free blocks large enough */
-    printf("mymalloc: %s:%d: malloc failed (not enough memory)\n", file, line);
+    error_handler("malloc failed (not enough memory)", file, line);
     return NULL;
 }
 
 void myfree(void *ptr, const char* file, int line) {
     /* check if malloc has been called yet */
     if (get_size(myblock) == 0) {
-        printf("mymalloc: %s:%d: free failed (nothing allocated)\n", file, line);
+        error_handler("free failed (nothing allocated)", file, line);
         return;
     }
 
     char *target = (char*)ptr;
     /* check if arg is null or outside the range of memory */
     if (target == NULL || !(target >= myblock && target < myblock + BLOCK_SIZE)) {
-        printf("mymalloc: %s:%d: free failed (invalid pointer)\n", file, line);
+        error_handler("free failed (invalid pointer)", file, line);
         return;
     }
 
@@ -141,7 +142,7 @@ void myfree(void *ptr, const char* file, int line) {
         if (curr + META_SIZE == target) {  /* make sure ptr is aligned with start of block */
             /* check if curr is already freed */
             if (get_used(curr) == false) {
-                printf("mymalloc: %s:%d: free failed (block already freed)\n", file, line);
+                error_handler("free failed (block already freed)", file, line);
                 return;
             }
 
@@ -191,7 +192,7 @@ void myfree(void *ptr, const char* file, int line) {
     }
 
     /* if block not found, pointer was unaligned */
-    printf("mymalloc: %s:%d: free failed (pointer doesn't point to start of block)\n", file, line);
+    error_handler("free failed (pointer doesn't point to start of block)", file, line);
     return;
 }
 
