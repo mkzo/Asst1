@@ -55,22 +55,19 @@ void workload_c() {
 
 /* Workload D */
 void workload_d() {
-    char *a = malloc(4094);
-    free(a);
 
-    char *b = malloc(4096);
-    free(b);
+    /*********************************************/
+    /* testing insufficient memory/metadata size */
+    /*********************************************/
 
-    int *c[682];
-    for (int i = 0; i < 682; i++) {  // will allocate 682*(4+2) = 4092 bytes
-        c[i] = malloc(4);
-    }
-    for (int i = 0; i < 682; i+=2) {  // will free every other 6 byte memory block
-        free(c[i]);
-    }
+    char *ptr_1 = malloc(4092);  /* allocate a 4092 byte block, block size is 4094 */
 
-    char *d = malloc(1); // will allocate 1+2 = 3 bytes
-    double *e = malloc(8); // will attempt to allocate 2+8 = 10 bytes, will fail because of memory fragmentation
+    /* calling mymalloc directly with no filename suppresses error messages */
+    char *ptr_2 = mymalloc(1, NULL, 0);  /* allocate a 1 byte block. since there are only 2 
+                                            bytes left (>= 3 needed), this should fail */
+
+    assert(ptr_2 == NULL);  /* check that malloc failed */
+    free(ptr_1);
 }
 
 /* Workload E */
@@ -117,21 +114,6 @@ void workload_e() {
 
     free(hang[0]);
     free(hang[1]);
-
-
-    /*********************************************/
-    /* testing insufficient memory/metadata size */
-    /*********************************************/
-
-    char *ptr_1 = malloc(4092);  /* allocate a 4092 byte block, block size is 4094 */
-
-    /* calling mymalloc directly with no filename suppresses error messages */
-    char *ptr_2 = mymalloc(1, NULL, 0);  /* allocate a 1 byte block. since there are only 2 
-                                            bytes left (>= 3 needed), this should fail */
-
-    assert(ptr_2 == NULL);  /* check that malloc failed */
-
-    free(ptr_1);
 }
 
 /* Takes a function pointer, runs the function 50 times and prints the average running time */
