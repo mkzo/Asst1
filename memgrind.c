@@ -78,6 +78,17 @@ int main() {
     run_time_recorder(workload_ptr_a, "Workload A");
     run_time_recorder(workload_ptr_b, "Workload B");
     run_time_recorder(workload_ptr_c, "Workload C");
+
+    char *c = malloc(1);
+    free(c);
+    free(c);
+
+    for (int i=0; i < 4100; i++) {
+        if (malloc(1) == NULL) {
+            printf("%d\n", i);
+            break;
+        }
+    }
     
     return 0;
 }

@@ -102,7 +102,7 @@ void *mymalloc(size_t size, const char* file, int line) {
     }
 
     /* Error has occured */
-    printf("Malloc failed (no memory): in line %d of \"%s\"\n", line, file);
+    printf("MALLOC FAILED (no memory): in line %d of \"%s\"\n", line, file);
     return NULL;
 }
 
@@ -122,6 +122,12 @@ void myfree(void *ptr, const char* file, int line) {
     char *curr = myblock;
     while (curr < target) {
         if (curr + META_SIZE == target) {
+            /* check if curr is already freed */
+            if (get_used(curr) == false) {
+                printf("FREE FAILED (block already freed): in line %d of \"%s\"\n", line, file);
+                return;
+            }
+
             set_used(curr, false);
             set_freed(curr, 0);
 
