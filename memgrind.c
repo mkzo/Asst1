@@ -138,6 +138,25 @@ void workload_e() {
     assert(frag[0] == ptr);  /* make sure that free combines the three fragmented blocks into 1 free block */
     free(ptr);
 
+    /* initialize 40 blocks of memory */
+    char *frag_2[40];
+    for (int i=0; i < 40; i++) {
+        frag_2[i] = malloc(100);
+    }
+
+    /* free all even blocks */
+    for (int i=0; i < 40; i += 2) {
+        free(frag_2[i]);
+    }
+    /* free all odd blocks */
+    for (int i=1; i < 40; i += 2) {
+        free(frag_2[i]);
+    }
+
+    ptr = malloc(4094); /* check that the whole memory can be allocated into 1 block */
+    assert(ptr != NULL);
+    
+    free(ptr);
 
     /**********************************/
     /* testing handling hanging bytes */
