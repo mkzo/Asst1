@@ -169,9 +169,9 @@ void run_time_recorder(void (*workload_ptr)(), char* str) {
     struct timeval start, end;
     int total = 0;
     for (int i = 0; i < 50; i++) {
-        gettimeofday(&start);
+        gettimeofday(&start, NULL);
         workload_ptr();
-        gettimeofday(&end);
+        gettimeofday(&end, NULL);
         total += (end.tv_usec - start.tv_usec);
     }
     printf("%s Average: %d us\n", str, total/50);
