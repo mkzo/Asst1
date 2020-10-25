@@ -1,7 +1,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#include <sys/time.h>
 #include <assert.h>
 #include "mymalloc.h"
 
@@ -166,14 +166,15 @@ void workload_e() {
 
 /* Takes a function pointer, runs the function 50 times and prints the average running time */
 void run_time_recorder(void (*workload_ptr)(), char* str) {
-    double total = 0;
-    for (int i = 0; i < 1; i++) {
-        clock_t start = clock();
+    struct timeval start, end;
+    int total = 0;
+    for (int i = 0; i < 50; i++) {
+        gettimeofday(&start);
         workload_ptr();
-        clock_t end = clock();
-        total += (double)(end - start) / CLOCKS_PER_SEC;
+        gettimeofday(&end);
+        total += (end.tv_usec - start.tv_usec);
     }
-    printf("%s Average: %lf us\n", str, total/1);
+    printf("%s Average: %d us\n", str, total/50);
 }
 
 int main() {   
