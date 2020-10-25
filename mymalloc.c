@@ -48,22 +48,23 @@ void set_size(const void *addr, size_t size) {
     unsigned char *b1 = (unsigned char*)addr;  /* pointers to first and second bytes of metadata */
     unsigned char *b2 = (unsigned char*)addr+1;
 
-    size_t mask1 = 0xf00;  // 00001111 00000000
-    size_t mask2 = 0x0ff;  // 00000000 11111111
+    size_t mask1 = 0xf00;  /* 00001111 00000000 */
+    size_t mask2 = 0x0ff;  /* 00000000 11111111 */
 
-    // save first bit in b1 because we will overwrite
-    bool tmp = get_used(addr);
-    *b1 = (size & mask1) >> 8;
+    
+    bool tmp = get_used(addr); /* save first bit in b1 because we will overwrite */
+    *b1 = (size & mask1) >> 8;  /* bit shift right to fit in unsigned char */
     set_used(addr, tmp);  /* restore first bit */
 
     *b2 = (size & mask2);
 }
 
 void set_freed(const void *addr, size_t size) {
-    unsigned char mask = 0x3 << 4; // 00110000
+    unsigned char mask = 0x3 << 4; /* 00110000 */
     unsigned char val = *(unsigned char*)addr;
-    val &= ~mask;
-    val |= (size << 4);
+
+    val &= ~mask;  /* clear 3rd and 4th bit */
+    val |= (mask & (size << 4));  /* set target bits to match size */
 
     *(unsigned char*)addr = val;
 }
@@ -71,112 +72,122 @@ void set_freed(const void *addr, size_t size) {
 /*********** Main memory functions ***********/
 
 void *mymalloc(size_t size, const char* file, int line) {
-    /* Initializes first node, should only run once */
+    /* Initializes first block, runs first time malloc is called */
+    /* No block should ever have size 0, only happens when myblock is blank (just initialized) */
     if (get_size(myblock) == 0) {
         set_used(myblock, 0);
         set_size(myblock, BLOCK_SIZE - META_SIZE);
     }
 
     /* search for free memory block */
-    char *nd = myblock;
-    while (nd < myblock + BLOCK_SIZE) { 
-        size_t nd_used = get_used(nd);
-        size_t nd_size = get_size(nd);
+    char *curr = myblock;
+    while (curr < myblock + BLOCK_SIZE) { 
+        size_t curr_used = get_used(curr);
+        size_t curr_size = get_size(curr);
 
-        /* Free block and enough space to accomodate request */
-        if (nd_used == 0 && nd_size >= size) {
-            /* Resize blocks */
-            if (nd_size - size > META_SIZE) {  /* Enough space to make a new block */
-                char *new_nd = nd + (size + META_SIZE);
-                set_used(new_nd, 0);
-                set_size(new_nd, nd_size - (size + META_SIZE));
+        /* Block is free and enough space for request */
+        if (curr_used == 0 && curr_size >= size) {
+            if (curr_size - size > META_SIZE) {  /* Enough space to split free block into 2 blocks */
+                char *new_curr = curr + (size + META_SIZE);
+                set_used(new_curr, 0);
+                set_size(new_curr, curr_size - (size + META_SIZE));
 
-                set_used(nd, 1);
-                set_size(nd, size);
+                set_used(curr, 1);
+                set_size(curr, size);
             }
+
             else {  /* not enough room to make new block */
-                if (nd_size > size) {  /* block may have used bytes at the end */
-                    set_freed(nd, nd_size-size);
+                if (curr_size > size) {  /* block may have unused bytes at the end */
+                    set_freed(curr, curr_size-size);
                 }
-                set_used(nd, 1);
+                set_used(curr, 1);
             }
-            return nd + META_SIZE;
+
+            return curr + META_SIZE;
         }
 
         /* move to next block */
-        nd += nd_size + META_SIZE;
+        curr += curr_size + META_SIZE;
     }
 
-    /* Error has occured */
+    /* No free blocks large enough */
     printf("MALLOC FAILED (no memory): in line %d of \"%s\"\n", line, file);
     return NULL;
 }
 
 void myfree(void *ptr, const char* file, int line) {
+    /* check if malloc has been called yet */
     if (get_size(myblock) == 0) {
         printf("FREE FAILED (nothing allocated): in line %d of \"%s\"\n", line, file);
         return;
     }
 
     char *target = (char*)ptr;
+    /* check if arg is null or outside the range of memory */
     if (target == NULL || !(target >= myblock && target < myblock + BLOCK_SIZE)) {
-        printf("FREE FAILED (pointer out of bounds): in line %d of \"%s\"\n", line, file);
+        printf("FREE FAILED (invalid pointer): in line %d of \"%s\"\n", line, file);
         return;
     }
 
-    char *prev = NULL;
+    /* search for ptr in main memory */
+    char *prev = NULL;  /* blocks only point forward, need to keep track of prev block */
     char *curr = myblock;
+
     while (curr < target) {
-        if (curr + META_SIZE == target) {
+        if (curr + META_SIZE == target) {  /* make sure ptr is aligned with start of block */
             /* check if curr is already freed */
             if (get_used(curr) == false) {
                 printf("FREE FAILED (block already freed): in line %d of \"%s\"\n", line, file);
                 return;
             }
 
+            /* free block */
             set_used(curr, false);
             set_freed(curr, 0);
 
             /* Merge with previous memory block if possible */
             if (prev != NULL) {
-                if (get_used(prev) == false) {
+                /* merge with prev */
+                if (get_used(prev) == false) {  
                     size_t new_size = get_size(prev) + get_size(curr) + META_SIZE;
                     set_size(prev, new_size);
                     set_freed(prev, 0);
                     curr = prev;
                 }
+
                 /* try to reclaim memory from prev */
-                else if (get_freed(prev) > 0) {
+                else if (get_freed(prev) > 0) { 
                     size_t freed = get_freed(prev);
 
-                    set_size(prev, get_size(prev) - freed);
+                    set_size(prev, get_size(prev) - freed);  /* remove hanging mem from prev */
                     set_freed(prev, 0);
 
-                    set_size(curr, get_size(curr) + freed);
+                    set_size(curr, get_size(curr) + freed);  /* add mem to curr */
 
-                    *(curr-freed) = *curr;  /* move metadata back */
+                    *(curr-freed) = *curr;  /* since curr block gets larger, need to move metadata back */
                     *(curr-freed+1) = *(curr+1);
 
-                    curr = curr-freed;
+                    curr = curr-freed;  /* move ptr back */
                 }
             }
 
             /* Merge with next memory block if possible */
-            if (curr + get_size(curr) + META_SIZE < (myblock + BLOCK_SIZE)) {
-                /* peek next block */
-                char *peek = curr + get_size(curr) + META_SIZE;
-                if (get_used(peek) == false) {
-                    /* Merge with next memory block */
-                    size_t new_size = get_size(curr) + get_size(peek) + META_SIZE;
-                    set_size(curr, new_size);
-                }
+            char *peek = curr + get_size(curr) + META_SIZE; /* address of next block */
+            if (peek < (myblock + BLOCK_SIZE) && get_used(peek) == false) {
+                size_t new_size = get_size(curr) + get_size(peek) + META_SIZE;
+                set_size(curr, new_size);
             }
+
             return;
         }
+
+        /* advance to next block */
         prev = curr;
         curr += get_size(curr) + META_SIZE;
     }
-    printf("FREE FAILED (pointer doesn't point to block): in line %d of \"%s\"\n", line, file);
+
+    /* if block not found, pointer was unaligned */
+    printf("FREE FAILED (pointer doesn't point to start of block): in line %d of \"%s\"\n", line, file);
     return;
 }
 
