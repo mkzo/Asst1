@@ -17,14 +17,44 @@ void print_bin(const unsigned char *addr);
 void error_handler(const char *message, const char *file, int line);
 
 
-/*********** Retrive metadata functions ***********/
+/*********** Getter metadata functions ***********/
 
+/* NOTE: for all metadata functions, *addr should point
+   to the start of metadata, NOT the start of a block
+*/
+
+/* 
+ * Retrieves the used field of metadata, which is the first bit 
+ * in *addr.
+ * 
+ * Parameters
+ *     const void *addr - pointer to metadata
+ * Preconditions
+ *     addr must point to valid metadata
+ * Error Handling
+ *     None
+ * Returns
+ *     Value of used (1 or 0)
+*/
 bool get_used(const void *addr) {
     unsigned char mask = 0x1 << 7;  /* 10000000 in binary, selects first bit */
     unsigned char val = *(unsigned char*)addr; 
-    return (mask & val) >> 7;
+    return (mask & val) >> 7;  /* returns value of first bit */
 }
 
+/* 
+ * Retrieves the size field of metadata, which is split across two 
+ * bytes in *addr and *(addr+1).
+ * 
+ * Parameters
+ *     const void *addr - pointer to metadata
+ * Preconditions
+ *     addr must point to valid metadata
+ * Error Handling
+ *     None
+ * Returns
+ *     Value of size (0 <= size < 4096)
+*/
 size_t get_size(const void *addr) {
     unsigned char *b1 = (unsigned char*)addr;  /* pointers to first and second bytes of metadata */
     unsigned char *b2 = (unsigned char*)addr+1;
@@ -38,20 +68,62 @@ size_t get_size(const void *addr) {
     return val;
 }
 
-size_t get_freed(const void *addr) {
+/* 
+ * Retrieves the hanging field of metadata, which is located in *addr.
+ * 
+ * Parameters
+ *     const void *addr - pointer to metadata
+ * Preconditions
+ *     addr must point to valid metadata
+ * Error Handling
+ *     None
+ * Returns
+ *     Value of hanging (0, 1, or 2)
+*/
+size_t get_hanging(const void *addr) {
     unsigned char mask = 0x3 << 4;  /* 00110000 */
     unsigned char val = *(unsigned char*)addr;
     return (mask & val) >> 4;
 }
 
-/*********** Store metadata functions ***********/
+/*********** Setter metadata functions ***********/
 
+/* 
+ * Sets the used field of metadata, which is the first bit 
+ * in *addr.
+ * 
+ * Parameters
+ *     const void *addr - pointer to metadata
+ *     bool used - value of used
+ * Preconditions
+ *     addr must point to valid metadata
+ * Error Handling
+ *     None
+ * Returns
+ *     None
+*/
 void set_used(const void *addr, bool used) {
     if (get_used(addr) != used) {
         *(unsigned char*)addr ^= (1 << 7);  /* If first bit is different than used, flip it */
     }
 }
 
+/* 
+ * Sets the size field of metadata, which is split across two 
+ * bytes in *addr and *(addr+1).
+ * 
+ * Parameters
+ *     const void *addr - pointer to metadata
+ *     size_t size - value of size
+ * Preconditions
+ *     addr must point to valid metadata
+ *     0 < size < 4096
+ * Error Handling
+ *     If size is out of range, bit masking ensures it doesn't 
+ *     modify other parts of metadata
+ * Returns
+ *     None
+*/
 void set_size(const void *addr, size_t size) {
     unsigned char *b1 = (unsigned char*)addr;  /* pointers to first and second bytes of metadata */
     unsigned char *b2 = (unsigned char*)addr+1;
@@ -67,19 +139,59 @@ void set_size(const void *addr, size_t size) {
     *b2 = (size & mask2);
 }
 
-void set_freed(const void *addr, size_t size) {
+/* 
+ * Sets the hanging field of metadata, which is located in *addr.
+ * 
+ * Parameters
+ *     const void *addr - pointer to metadata
+ *     size_t hanging - value of hanging
+ * Preconditions
+ *     addr must point to valid metadata
+ *     0 <= hanging <= 2
+ * Error Handling
+ *     If hanging is out of range, bit masking ensures it doesn't 
+ *     modify other parts of metadata
+ * Returns
+ *     None
+*/
+void set_hanging(const void *addr, size_t hanging) {
     unsigned char mask = 0x3 << 4; /* 00110000 */
     unsigned char val = *(unsigned char*)addr;
 
     val &= ~mask;  /* clear 3rd and 4th bit */
-    val |= (mask & (size << 4));  /* set target bits to match size */
+    val |= (mask & (hanging << 4));  /* set target bits to match size */
 
     *(unsigned char*)addr = val;
 }
 
 /*********** Main memory functions ***********/
 
+/* 
+ * Allocates a block of memory within the 4096 byte myblock char array and 
+ * returns a pointer to allocated memory. Uses first free allocation. Can allocate 
+ * a maximum of 4094 bytes.
+ * 
+ * Parameters
+ *     size_t size - size of memory block to allocate
+ *     const char* file - file name of caller
+ *     int line - line of caller
+ * Preconditions
+ *     0 < size <= 4094
+ * Error Handling
+ *     When an error is detected, returns NULL and prints the reason 
+ *     for the error with the file name and execution line.
+ * 
+ *     Terminates if size is out of bounds (0 < size <= 4094) or no space left to allocate.
+ * Returns
+ *     Pointer to beginning of allocated memory or NULL
+ */
 void *mymalloc(size_t size, const char* file, int line) {
+    /* check size is between 0 and 4096 */
+    if (size <= 0 || size > 4094) {
+        error_handler("malloc failed (invalid size)", file, line);
+        return NULL;
+    }
+
     /* Initializes first block, runs first time malloc is called */
     /* No block should ever have size 0, only happens when myblock is blank (just initialized) */
     if (get_size(myblock) == 0) {
@@ -106,7 +218,7 @@ void *mymalloc(size_t size, const char* file, int line) {
 
             else {  /* not enough room to make new block */
                 if (curr_size > size) {  /* block may have unused bytes at the end */
-                    set_freed(curr, curr_size-size);
+                    set_hanging(curr, curr_size-size);
                 }
                 set_used(curr, 1);
             }
@@ -123,14 +235,35 @@ void *mymalloc(size_t size, const char* file, int line) {
     return NULL;
 }
 
-void myfree(void *ptr, const char* file, int line) {
+/* 
+ * Frees a block of memory at given address. Steps through memory blocks until it reaches the 
+ * given address and attempts to free it. Will merge freed block with adjacent free blocks if 
+ * necessary and absorb nearby hanging bytes. Terminates if address is invalid or already freed.
+ * 
+ * Parameters
+ *     const void *addr - pointer to block to be freed
+ *     const char* file - file name of caller
+ *     int line - line of caller
+ * Preconditions
+ *     addr must point to the beginning of a block, not its metadata
+ * Error Handling
+ *     When an error is detected, returns NULL and prints the reason 
+ *     for the error with the file name and execution line.
+ * 
+ *     Terminates if mymalloc() hasn't been called yet.
+ *     Terminates if addr points to an invalid address outside of myblock
+ *     Terminates if addr doesn't point to the start of a block or an already freed block
+ * Returns
+ *     None
+ */
+void myfree(const void *addr, const char* file, int line) {
     /* check if malloc has been called yet */
     if (get_size(myblock) == 0) {
         error_handler("free failed (nothing allocated)", file, line);
         return;
     }
 
-    char *target = (char*)ptr;
+    char *target = (char*)addr;
     /* check if arg is null or outside the range of memory */
     if (target == NULL || !(target >= myblock && target < myblock + BLOCK_SIZE)) {
         error_handler("free failed (invalid pointer)", file, line);
@@ -151,31 +284,31 @@ void myfree(void *ptr, const char* file, int line) {
 
             /* free block */
             set_used(curr, false);
-            set_freed(curr, 0);
+            set_hanging(curr, 0);
 
             /* Merge with previous memory block if possible */
             if (prev != NULL) {
-                /* merge with prev */
+                /* merge if prev is free*/
                 if (get_used(prev) == false) {  
                     size_t new_size = get_size(prev) + get_size(curr) + META_SIZE;
                     set_size(prev, new_size);
-                    set_freed(prev, 0);
+                    set_hanging(prev, 0);
                     curr = prev;
                 }
 
-                /* try to reclaim memory from prev */
-                else if (get_freed(prev) > 0) { 
-                    size_t freed = get_freed(prev);
+                /* try to reclaim hanging memory from prev */
+                else if (get_hanging(prev) > 0) { 
+                    size_t hanging = get_hanging(prev);
 
-                    set_size(prev, get_size(prev) - freed);  /* remove hanging mem from prev */
-                    set_freed(prev, 0);
+                    set_size(prev, get_size(prev) - hanging);  /* remove hanging from prev */
+                    set_hanging(prev, 0);
 
-                    set_size(curr, get_size(curr) + freed);  /* add mem to curr */
+                    set_size(curr, get_size(curr) + hanging);  /* add mem to curr */
 
-                    *(curr-freed) = *curr;  /* since curr block gets larger, need to move metadata back */
-                    *(curr-freed+1) = *(curr+1);
+                    *(curr-hanging) = *curr;  /* since curr block gets larger, need to move metadata back */
+                    *(curr-hanging+1) = *(curr+1);
 
-                    curr = curr-freed;  /* move ptr back */
+                    curr = curr-hanging;  /* move ptr back */
                 }
             }
 
@@ -199,6 +332,7 @@ void myfree(void *ptr, const char* file, int line) {
     return;
 }
 
+
 /*********** Local debugging functions ***********/
 
 void print_mem() {
@@ -206,8 +340,8 @@ void print_mem() {
     while (curr < myblock + BLOCK_SIZE) { 
         int used = get_used(curr);
         int size = get_size(curr);
-        int freed = get_freed(curr);
-        printf("(%d, %d, %d) -> ", used, size, freed);
+        int hanging = get_hanging(curr);
+        printf("(%d, %d, %d) -> ", used, size, hanging);
         curr += get_size(curr) + META_SIZE;
     }
     printf("\n");
@@ -216,13 +350,13 @@ void print_mem() {
 void print_block(const void *addr) {
     int used = get_used(addr);
     int size = get_size(addr);
-    int freed = get_freed(addr);
+    int hanging = get_hanging(addr);
 
     printf("\nBlock at 0x%p: ", addr);
     print_bin(addr);
     printf("\tUsed: %d\n", used);
     printf("\tSize: %d\n", size);
-    printf("\tFreed: %d\n", freed);
+    printf("\tHanging: %d\n", hanging);
     printf("\n");
 }
 

@@ -56,20 +56,66 @@ void workload_c() {
 /* Workload D */
 void workload_d() {
 
+    /*****************************/
+    /* testing saturating memory */
+    /*****************************/
+
+    char *blk[4096];
+    int i=0;
+    while (i < 4096) {  /* allocate 50 byte blocks until run out of memory */
+        blk[i] = mymalloc(50, NULL, 0);  /* calling mymalloc directly with no file suppresses errors */
+        if (blk[i] == NULL) {break;}
+        i++;
+    }
+
+    /* Each block is (50+2) bytes large. 4096//52 = 78, so
+    we expect to have 78 blocks before we run out of memory */
+    assert(i == 78);
+
+    for (i = i-1; i >= 0; i--) {
+        free(blk[i]);
+    }
+
+
     /*********************************************/
     /* testing insufficient memory/metadata size */
     /*********************************************/
 
     char *ptr_1 = malloc(4092);  /* allocate a 4092 byte block, block size is 4094 */
 
-    /* calling mymalloc directly with no filename suppresses error messages */
-    char *ptr_2 = mymalloc(1, NULL, 0);  /* allocate a 1 byte block. since there are only 2 
-                                            bytes left (>= 3 needed), this should fail */
+    char *ptr_2 = mymalloc(1, NULL, 0);  /* allocate a 1 byte block. since there are only 2 bytes 
+                                            left (>= 3 needed), this fails so we suppress errors */
 
     assert(ptr_2 == NULL);  /* check that malloc failed */
     free(ptr_1);
 
-    
+
+    /**********************/
+    /* testing first free */
+    /**********************/
+
+    char *arr[5];
+
+    /* create 3 seperated free blocks of size 30, 20, 10 */
+    arr[0] = malloc(30);
+    arr[1] = malloc(1);
+    arr[2] = malloc(20);
+    arr[3] = malloc(1);
+    arr[4] = malloc(10);
+    free(arr[0]);
+    free(arr[2]);
+    free(arr[4]);
+
+    char *a = malloc(10);  /* malloc should place this in the first valid block (30) */
+    char *b = malloc(20);  /* needs 22 bytes of space, will be placed in arr[2] */
+
+    assert(a == arr[0]);
+    assert(b == arr[2]);
+
+    free(a);
+    free(b);
+    free(arr[1]);
+    free(arr[3]);   
 }
 
 /* Workload E */
@@ -121,13 +167,13 @@ void workload_e() {
 /* Takes a function pointer, runs the function 50 times and prints the average running time */
 void run_time_recorder(void (*workload_ptr)(), char* str) {
     double total = 0;
-    for (int i = 0; i < 5000; i++) {
+    for (int i = 0; i < 1; i++) {
         clock_t start = clock();
         workload_ptr();
         clock_t end = clock();
         total += (double)(end - start) / CLOCKS_PER_SEC;
     }
-    printf("%s Average: %lf us\n", str, total/5000);
+    printf("%s Average: %lf us\n", str, total/1);
 }
 
 int main() {   
@@ -144,5 +190,6 @@ int main() {
     run_time_recorder(workload_ptr_c, "Workload C");
     run_time_recorder(workload_ptr_d, "Workload D");
     run_time_recorder(workload_ptr_e, "Workload E");
+
     return 0;
 }
