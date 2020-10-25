@@ -68,6 +68,8 @@ void workload_d() {
 
     assert(ptr_2 == NULL);  /* check that malloc failed */
     free(ptr_1);
+
+    
 }
 
 /* Workload E */
@@ -140,7 +142,7 @@ int main() {
     run_time_recorder(workload_ptr_a, "Workload A");
     run_time_recorder(workload_ptr_b, "Workload B");
     run_time_recorder(workload_ptr_c, "Workload C");
-    // run_time_recorder(workload_ptr_d, "Workload D");
+    run_time_recorder(workload_ptr_d, "Workload D");
     run_time_recorder(workload_ptr_e, "Workload E");
     return 0;
 }

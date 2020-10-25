@@ -10,6 +10,3 @@ void set_size(const void *addr, size_t size);
 
 void *mymalloc(size_t size, const char* file, int line);
 void myfree(void *ptr, const char* file, int line);
-
-void print_block(const void *addr);
-void print_bin(const unsigned char *addr);

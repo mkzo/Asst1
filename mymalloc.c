@@ -9,10 +9,13 @@
 static char myblock[BLOCK_SIZE];
 
 
-void error_handler(const char *message, const char *file, int line) {
-    if (file == NULL) {return;}
-    printf("mymalloc: %s:%d: %s\n", file, line, message);
-}
+/******* Declaring local debugging functions *******/
+
+void print_mem();
+void print_block(const void *addr);
+void print_bin(const unsigned char *addr);
+void error_handler(const char *message, const char *file, int line);
+
 
 /*********** Retrive metadata functions ***********/
 
@@ -196,6 +199,8 @@ void myfree(void *ptr, const char* file, int line) {
     return;
 }
 
+/*********** Local debugging functions ***********/
+
 void print_mem() {
     char *curr = myblock;
     while (curr < myblock + BLOCK_SIZE) { 
@@ -228,12 +233,14 @@ void print_bin(const unsigned char *addr) {
     for (int i=7; i >= 0; i--) {
         printf("%d", (val1 >> i) & 1);
     }
-
     printf(" ");
-
     for (int i=7; i >= 0; i--) {
         printf("%d", (val2 >> i) & 1);
     }
-
     printf("\n");
+}
+
+void error_handler(const char *message, const char *file, int line) {
+    if (file == NULL) {return;}
+    printf("mymalloc: %s:%d: %s\n", file, line, message);
 }
