@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 bool get_used(const void *addr);
-int get_size(const void *addr);
+size_t get_size(const void *addr);
 void set_used(const void *addr, bool used);
 void set_size(const void *addr, size_t size);
 

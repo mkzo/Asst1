@@ -8,49 +8,53 @@
 #define META_SIZE 2
 static char myblock[BLOCK_SIZE];
 
-// 1 means in use, 0 means free
+
+/*********** Retrive metadata functions ***********/
+
 bool get_used(const void *addr) {
-    unsigned char mask = 0x1 << 7;  // 10000000
-    unsigned char val = *(unsigned char*)addr;
+    unsigned char mask = 0x1 << 7;  /* 10000000 in binary, selects first bit */
+    unsigned char val = *(unsigned char*)addr; 
     return (mask & val) >> 7;
 }
 
-int get_size(const void *addr) {
-    unsigned char *b1 = (unsigned char*)addr;
+size_t get_size(const void *addr) {
+    unsigned char *b1 = (unsigned char*)addr;  /* pointers to first and second bytes of metadata */
     unsigned char *b2 = (unsigned char*)addr+1;
 
-    int val = 0;
-    char mask = 0xf;
+    size_t val = 0;
+    size_t mask = 0xf; /* 00001111, selects last 4 bits */
 
-    val += ((*b1) & mask) << 8;
-    val += *b2;
+    val += ((size_t)(*b1) & mask) << 8;  /* gets first 4 bits of size, cast to uint to prevent overflow */
+    val += *b2;  /* b2 last 8 bits, no need for bit manipulation */
 
     return val;
 }
 
-int get_freed(const void *addr) {
-    unsigned char mask = 0x3 << 4;  // 00110000
+size_t get_freed(const void *addr) {
+    unsigned char mask = 0x3 << 4;  /* 00110000 */
     unsigned char val = *(unsigned char*)addr;
     return (mask & val) >> 4;
 }
 
+/*********** Store metadata functions ***********/
+
 void set_used(const void *addr, bool used) {
     if (get_used(addr) != used) {
-        *(unsigned char*)addr ^= 1 << 7;
+        *(unsigned char*)addr ^= (1 << 7);  /* If first bit is different than used, flip it */
     }
 }
 
 void set_size(const void *addr, size_t size) {
-    unsigned char *b1 = (unsigned char*)addr;
+    unsigned char *b1 = (unsigned char*)addr;  /* pointers to first and second bytes of metadata */
     unsigned char *b2 = (unsigned char*)addr+1;
 
-    int mask1 = 0xf00;  // 1111 0000 0000
-    int mask2 = 0x0ff;  // 0000 1111 1111
+    size_t mask1 = 0xf00;  // 00001111 00000000
+    size_t mask2 = 0x0ff;  // 00000000 11111111
 
-    // save valid because we will overwrite
-    int valid = get_used(addr);
+    // save first bit in b1 because we will overwrite
+    bool tmp = get_used(addr);
     *b1 = (size & mask1) >> 8;
-    set_used(addr, valid);
+    set_used(addr, tmp);  /* restore first bit */
 
     *b2 = (size & mask2);
 }
@@ -64,6 +68,8 @@ void set_freed(const void *addr, size_t size) {
     *(unsigned char*)addr = val;
 }
 
+/*********** Main memory functions ***********/
+
 void *mymalloc(size_t size, const char* file, int line) {
     /* Initializes first node, should only run once */
     if (get_size(myblock) == 0) {
@@ -74,8 +80,8 @@ void *mymalloc(size_t size, const char* file, int line) {
     /* search for free memory block */
     char *nd = myblock;
     while (nd < myblock + BLOCK_SIZE) { 
-        int nd_used = get_used(nd);
-        int nd_size = get_size(nd);
+        size_t nd_used = get_used(nd);
+        size_t nd_size = get_size(nd);
 
         /* Free block and enough space to accomodate request */
         if (nd_used == 0 && nd_size >= size) {
@@ -134,14 +140,14 @@ void myfree(void *ptr, const char* file, int line) {
             /* Merge with previous memory block if possible */
             if (prev != NULL) {
                 if (get_used(prev) == false) {
-                    int new_size = get_size(prev) + get_size(curr) + META_SIZE;
+                    size_t new_size = get_size(prev) + get_size(curr) + META_SIZE;
                     set_size(prev, new_size);
                     set_freed(prev, 0);
                     curr = prev;
                 }
                 /* try to reclaim memory from prev */
                 else if (get_freed(prev) > 0) {
-                    int freed = get_freed(prev);
+                    size_t freed = get_freed(prev);
 
                     set_size(prev, get_size(prev) - freed);
                     set_freed(prev, 0);
@@ -161,7 +167,7 @@ void myfree(void *ptr, const char* file, int line) {
                 char *peek = curr + get_size(curr) + META_SIZE;
                 if (get_used(peek) == false) {
                     /* Merge with next memory block */
-                    int new_size = get_size(curr) + get_size(peek) + META_SIZE;
+                    size_t new_size = get_size(curr) + get_size(peek) + META_SIZE;
                     set_size(curr, new_size);
                 }
             }
