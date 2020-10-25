@@ -7,46 +7,48 @@
 /* Workload A */
 void workload_a() {
     for (int i = 0; i < 120; i++) {
-        char* a = malloc(1);
-        free(a);
+        char* ptr = malloc(1);
+        free(ptr);
     }
 }
 
 /* Workload B */
 void workload_b() {
-    char* a[120];
+    char *arr[120];
     for (int i = 0; i < 120; i++) {
-        a[i] = malloc(1);
+        arr[i] = malloc(1);
     }
     for (int i = 0; i < 120; i++) {
-        free(a[i]);
+        free(arr[i]);
     }
 }
 
 /* Workload C */
 void workload_c() {
-    char* a[120];
-    int i = 0;
-    int j = 0;
-    srand(time(NULL)); 
-    for (int k = 0; k < 240; k++) {
-        if (i == 120) {
-            break;
-        }
-        else if (i <= j) {
-            a[i++] = malloc(1);
+    srand(time(0)); 
+
+    char *arr[120];
+    int alloced = 0, freed = 0;
+    while (alloced < 120) {
+        if (alloced <= freed) {
+            arr[alloced] = malloc(1);
+            alloced++;
         }
         else {
             if (rand() % 2) {
-                a[i++] = malloc(1);
+                arr[alloced] = malloc(1);
+                alloced++;
             }
             else {
-                free(a[j++]);
+                free(arr[freed]);
+                freed++;
             }
         }
     }
-    while (j < 120) {
-        free(a[j++]);
+
+    while (freed < 120) {
+        free(arr[freed]);
+        freed++;
     }
 }
 

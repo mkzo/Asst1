@@ -64,7 +64,7 @@ void set_freed(const void *addr, size_t size) {
     *(unsigned char*)addr = val;
 }
 
-void *mymalloc(size_t size) {
+void *mymalloc(size_t size, const char* file, int line) {
     /* Initializes first node, should only run once */
     if (get_size(myblock) == 0) {
         set_used(myblock, 0);
@@ -102,19 +102,19 @@ void *mymalloc(size_t size) {
     }
 
     /* Error has occured */
-    printf("NO SPACE\n");
+    printf("Malloc failed (no memory): in line %d of \"%s\"\n", line, file);
     return NULL;
 }
 
-void myfree(void *ptr) {
+void myfree(void *ptr, const char* file, int line) {
     if (get_size(myblock) == 0) {
-        printf("Malloc has not yet been called\n");
+        printf("FREE FAILED (nothing allocated): in line %d of \"%s\"\n", line, file);
         return;
     }
 
     char *target = (char*)ptr;
     if (target == NULL || !(target >= myblock && target < myblock + BLOCK_SIZE)) {
-        printf("Specified address is not a valid pointer\n");
+        printf("FREE FAILED (pointer out of bounds): in line %d of \"%s\"\n", line, file);
         return;
     }
 
@@ -164,7 +164,7 @@ void myfree(void *ptr) {
         prev = curr;
         curr += get_size(curr) + META_SIZE;
     }
-    printf("Pointer unaligned\n");
+    printf("FREE FAILED (pointer doesn't point to block): in line %d of \"%s\"\n", line, file);
     return;
 }
 
