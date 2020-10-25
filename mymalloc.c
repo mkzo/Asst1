@@ -8,6 +8,10 @@
 #define META_SIZE 2
 static char myblock[BLOCK_SIZE];
 
+void error_handler(const char *message, const char *file, int line) {
+    if (file == NULL) {return;}
+    printf("mymalloc: %s:%d: %s\n", file, line, message);
+}
 
 /*********** Retrive metadata functions ***********/
 

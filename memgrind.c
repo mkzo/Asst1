@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <assert.h>
 #include "mymalloc.h"
 
 /* Workload A */
@@ -74,26 +75,40 @@ void workload_d() {
 
 /* Workload E */
 void workload_e() {
-    char* a[5];
-    for (int i = 0; i < 50; i++) {
-        a[0] = malloc(1022);
-        a[1] = malloc(1022);
-        a[2] = malloc(1022);
-        // uses 3*1024 = 3072 bytes
-        free(a[0]);
-        free(a[2]);
-        free(a[1]); // freed memory blocks are now adjacent and should be merged
-        a[3] = malloc(4092); // 4092 bytes allocated + 2 bytes of metadata uses 4094 bytes
+    char *frag[3];
+    frag[0] = malloc(100);
+    frag[1] = malloc(100);
+    frag[2] = malloc(100);
 
-        /* last two free bytes are not sufficient to store the minimum of 1 byte of allocated memory, thus they
-        incorporated into a[3]. malloc should be unable to allocate 1 additional byte of data */
+    free(frag[0]);
+    free(frag[2]);
+    free(frag[1]); // freed memory blocks are now adjacent and should be merged
 
-        a[4] = malloc(1);
-        free(a[3]); // frees all 4096 bytes
-        
-        a[4] = malloc(1); // allocated 1+2 = 3 bytes
-        free(a[4]);
-    }
+    char *ptr = malloc(300);
+    assert(frag[0] == ptr);
+    free(ptr);
+
+    char *hang[2];
+    hang[0] = malloc(100);
+    hang[1] = malloc(100);
+
+    free(hang[0]);
+    hang[0] = malloc(98);
+    free(hang[1]);
+    hang[1] = malloc(100);
+    assert(hang[0]+100 == hang[1]);
+
+    free(hang[0]);
+    free(hang[1]);
+
+    /* last two free bytes are not sufficient to store the minimum of 1 byte of allocated memory, thus they
+    incorporated into a[3]. malloc should be unable to allocate 1 additional byte of data */
+    char *ptr_1 = malloc(4092);
+    char *ptr_2 = mymalloc(1, NULL, 0);
+
+    assert(ptr_2 == NULL);
+
+    free(ptr_1); // frees all 4096 bytes
 }
 
 /* Takes a function pointer, runs the function 50 times and records the average running time */
@@ -115,11 +130,12 @@ int main() {
     void (*workload_ptr_c)() = &workload_c;
     void (*workload_ptr_d)() = &workload_d;
     void (*workload_ptr_e)() = &workload_e;
+
     /* Run each workload 50 times and print runtime */
     run_time_recorder(workload_ptr_a, "Workload A");
     run_time_recorder(workload_ptr_b, "Workload B");
     run_time_recorder(workload_ptr_c, "Workload C");
-    run_time_recorder(workload_ptr_d, "Workload D");
+    // run_time_recorder(workload_ptr_d, "Workload D");
     run_time_recorder(workload_ptr_e, "Workload E");
     return 0;
 }
