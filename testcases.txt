@@ -1,0 +1,27 @@
+Workload D
+
+In this workload we focus on testing the behavior and performance of our malloc() function. We have 3 separate tests:
+
+Saturating memory - 
+We attempt to allocate 50 byte size blocks of memory until malloc() returns NULL and prints an error message indicating memory saturation. Saturation will occur on the 79nd iteration, since 78*(50+2)=4056 bytes, leaving 40 bytes of free memory. In reverse order, free each of the 78 allocated 50 byte blocks. This takes longer than freeing starting with the first block, since traversal starts at the first memory block.
+
+Insufficient metadata size - 
+We test if malloc recognizes insufficient metadata size for memory allocation. We malloc 4092 bytes, using 4092+2=4094 bytes out of the 4096 bytes in myblock. The last two bytes are insufficient for memory allocation of even 1 byte, which would require 2+1=3 bytes.
+
+First free algorithm - 
+Finally we test the first free algorithm by allocating, in order, blocks of memory of size 30 bytes, 1, byte, 20 bytes, 1 byte, 10 bytes, then freeing the 30, 20, and 10 byte blocks. First free dictates the first available block of sufficient size will be used to fulfill a malloc request, thus when call malloc(10) the empty 30 byte block will fulfill that command, leaving a free block of size 18 bytes + 2 metadata bytes. Calling malloc(20) would use the original 20 byte block since 18 bytes is insufficient. 
+
+-----------------------------------------------------------------------------------------------------------
+
+Workload E
+
+This workload tests the features of our free() function. We have 2 tests:
+
+Memory fragmentation - (this has 2 subtasks)
+We allocate three adjacent blocks of size 100. We free the first and third blocks, then free the second block. This way we can test how our program handles 3 separately freed blocks, all next to each other. Ideally, our program should merge these 3 blocks together into 1 large block. We can see if this is true by allocating a block of size 300 and comparing its address against our first block. If our blocks are merged, then this new block should have the same address where the first block, frag[0], used to be. Otherwise, it will be allocated in a different address further down our memory. We check this with assert(frag[0] == ptr).
+
+We fill the memory with 40 blocks of size 100, then free all even blocks, then free all odd blocks separately. To test if our memory merges these fragmented blocks, we can check if malloc(4094) (allocating the whole memory) succeeds. If our memory is fragmented, this is impossible.
+
+
+Hanging bytes - 
+First, we allocate two blocks of size 100. Then we free the first block and create a new block of size 99, so 1 byte smaller. This means there is 1 free byte between the first and second blocks. However, there’s not enough space to make this byte a separate block, so we store it as a “hanging” byte at the end of the first block. If we free and reallocate the second block, we can test if it uses this hanging byte by seeing if the address of the second block moves back 1 byte.

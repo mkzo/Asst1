@@ -162,7 +162,7 @@ void workload_e() {
     /* testing handling hanging bytes */
     /**********************************/
 
-    char *hang[2];
+    char *hang[3];
     hang[0] = malloc(100);
     hang[1] = malloc(100);
     assert(hang[0]+102 == hang[1]);  /* hang[0] and hang[1] should be 102 bytes apart (100 + 2 for metadata) */
@@ -173,14 +173,14 @@ void workload_e() {
     /* there is only 1 byte between hang[0] and hang[1], too small for a new block
     to be created inbetween. the "hanging" byte is stored at the end of hang[0] */
 
-    free(hang[1]);  /* free and reallocating hang[1] will use the hanging byte from hang[0] */
-    hang[1] = malloc(100);
+    free(hang[1]);  /* free and reallocating a block the same size will use the hanging byte from hang[0] */
+    hang[2] = malloc(100);
     
-    assert(hang[0]+101 == hang[1]);  /* hang[0] and hang[1] are now 101 bytes apart, because
-                                        the hanging bit in hang[0] is used in hang[1] now    */
+    assert(hang[1] == hang[2]+1);  /* the new 100 byte block should be moved back 1 byte because it uses the
+                                      hanging byte from hang[0] */
 
     free(hang[0]);
-    free(hang[1]);
+    free(hang[2]);
 }
 
 /* Takes a function pointer, runs the function 50 times and prints the average running time */
